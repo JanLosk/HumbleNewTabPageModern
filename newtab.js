@@ -2,7 +2,10 @@
 
 // render a single bookmark node
 function render(node, target) {
-	if (node.description == 'separator') return;
+	if (node.type == 'separator' || node.url && node.url.startsWith('place:')) {
+		console.warn('skipping: ', node);
+		return;
+	}
 
 	var li = document.createElement('li');
 	var a = document.createElement('a');
@@ -38,9 +41,9 @@ function render(node, target) {
 				return false;
 			};
 		}
-		// fix opening chrome:// and file:/// urls
+		// fix opening about: and file:/// urls
 		var urlStart = url.substring(0, 6);
-		if (urlStart === 'chrome' || urlStart === 'file:/'){
+		if (urlStart === 'about:' || urlStart === 'file:/'){
 			a.onclick = function(e) {
 				openLink(node, newtab || (e.ctrlKey ? 2 : 0));
 				return false;
@@ -71,9 +74,7 @@ function render(node, target) {
 		// click handlers
 		addFolderHandlers(node, a);
 		enableDragFolder(node, a);
-
-	} else if (node.id == 'apps')
-		enableDragFolder(node, a);
+	}
 
 	target.appendChild(li);
 	return li;
@@ -89,7 +90,7 @@ function renderAll(nodes, target, toplevel) {
 			render(node, ul);
 	}
 	if (ul.childNodes.length === 0)
-		render({ id: 'empty', title: '< Empty >' }, ul);
+		render({ id: 'empty', title: L('< Empty >') }, ul);
 	if (toplevel)
 		target.appendChild(ul);
 	else {
@@ -168,7 +169,7 @@ function addFolderHandlers(node, a) {
 	if (!getConfig('lock')) {
 		items.push(null);// spacer
 		items.push({
-			label: 'Create new column',
+			label: L('Create new column'),
 			action: function() {
 				addColumn([node.id]);
 			}
@@ -178,35 +179,35 @@ function addFolderHandlers(node, a) {
 			var pos = coords[node.id];
 			if (pos.y > 0)
 				items.push({
-					label: 'Move folder up',
+					label: L('Move folder up'),
 					action: function() {
 						addRow(node.id, pos.x, pos.y - 1);
 					}
 				});
 			if (pos.y < columns[pos.x].length - 1)
 				items.push({
-					label: 'Move folder down',
+					label: L('Move folder down'),
 					action: function() {
 						addRow(node.id, pos.x, pos.y + 2);
 					}
 				});
 			if (pos.x > 0)
 				items.push({
-					label: 'Move folder left',
+					label: L('Move folder left'),
 					action: function() {
 						addRow(node.id, pos.x - 1);
 					}
 				});
 			if (pos.x < columns.length - 1)
 				items.push({
-					label: 'Move folder right',
+					label: L('Move folder right'),
 					action: function() {
 						addRow(node.id, pos.x + 1);
 					}
 				});
 			if (root.indexOf(node.id) < 0)
 				items.push({
-					label: 'Remove folder',
+					label: L('Remove folder'),
 					action: function() {
 						removeRow(pos.x, pos.y);
 					}
@@ -234,20 +235,20 @@ function addColumnHandlers(index, ul) {
 		items.push(null);// spacer
 		if (index > 0)
 			items.push({
-				label: 'Move column left',
+				label: L('Move column left'),
 				action: function() {
 					addColumn(ids, index - 1);
 				}
 			});
 		if (index < columns.length - 1)
 			items.push({
-				label: 'Move column right',
+				label: L('Move column right'),
 				action: function() {
 					addColumn(ids, index + 2);
 				}
 			});
 		items.push({
-			label: 'Remove column',
+			label: L('Remove column'),
 			action: function() {
 				removeColumn(index);
 			}
@@ -255,14 +256,14 @@ function addColumnHandlers(index, ul) {
 		if (ids.length == 1) {
 			if (index > 0)
 				items.push({
-					label: 'Move folder left',
+					label: L('Move folder left'),
 					action: function() {
 						addRow(ids[0], index - 1);
 					}
 				});
 			if (index < columns.length - 1)
 				items.push({
-					label: 'Move folder right',
+					label: L('Move folder right'),
 					action: function() {
 						addRow(ids[0], index + 1);
 					}
@@ -283,32 +284,26 @@ function addColumnHandlers(index, ul) {
 function getMenuItems(node) {
 	var items = [];
 		items.push({
-			label: 'Open all links in folder',
+			label: L('Open all links in folder'),
 			action: function() {
 				openLinks(node);
 			}
 		});
-	if (node.id == 'closed')
+	if (node.id == 'closed') {
+		items.push(null);// spacer
 		items.push({
-			label: 'Clear browsing data',
+			label: L('History'),
 			action: function() {
-				openLink({ url: 'chrome://settings/clearBrowserData' }, 1);
+				openLink({ url: 'about:history' }, 1);
 			}
 		});
-	if (node.id == 'devices')
 		items.push({
-			label: 'History',
+			label: L('Clear browsing data'),
 			action: function() {
-				openLink({ url: 'chrome://history' }, 1);
+				openLink({ url: 'about:preferences#privacy' }, 1);
 			}
 		});
-	if (Number(node.id))
-		items.push({
-			label: 'Edit bookmarks',
-			action: function() {
-				openLink({ url: 'chrome://bookmarks/?id=' + node.id }, 1);
-			}
-		});
+	}
 	return items;
 }
 
@@ -390,6 +385,7 @@ function enableDragColumn(id, column) {
 
 	column.ondragstart = function(event) {
 		dragIds = columns[id];
+		event.dataTransfer.setData('text/plain', JSON.stringify(dragIds));
 		event.dataTransfer.effectAllowed = 'move';
 		this.classList.add('dragstart');
 	};
@@ -411,6 +407,7 @@ function enableDragFolder(node, a) {
 	a.ondragstart = function(event) {
 		dragIds = [node.id];
 		event.stopPropagation();
+		event.dataTransfer.setData('text/plain', JSON.stringify(dragIds));
 		event.dataTransfer.effectAllowed = 'move copy';
 		this.classList.add('dragstart');
 	};
@@ -584,6 +581,9 @@ function getChildrenFunction(node) {
 			return function(callback) {
 				if (chrome.topSites)
 					chrome.topSites.get(function(result) {
+						result = result.filter(function(node) {
+							return node.url && !node.url.startsWith(location.origin);
+						});
 						callback(result.slice(0, getConfig('number_top')));
 					});
 				else
@@ -598,12 +598,6 @@ function getChildrenFunction(node) {
 		case 'closed':
 			return function(callback) {
 				getClosed(function(result) {
-					callback(result);
-				});
-			};
-		case 'devices':
-			return function(callback) {
-				getDevices(function(result) {
 					callback(result);
 				});
 			};
@@ -631,19 +625,13 @@ function getChildrenFunction(node) {
 function getSubTree(id, callback) {
 	switch(id) {
 		case 'top':
-			callback([{ title: 'Most visited', id: 'top', children: true}]);
-			break;
-		case 'apps':
-			callback([{ title: 'Apps', id: 'apps', url: 'chrome://apps' }]);
+			callback([{ title: L('Most visited'), id: 'top', children: true}]);
 			break;
 		case 'recent':
-			callback([{ title: 'Recent bookmarks', id: 'recent', children: true }]);
+			callback([{ title: L('Recent bookmarks'), id: 'recent', children: true }]);
 			break;
 		case 'closed':
-			callback([{ title: 'Recently closed', id: 'closed', children: true }]);
-			break;
-		case 'devices':
-			callback([{ title: 'Other devices', id: 'devices', children: true }]);
+			callback([{ title: L('Recently closed'), id: 'closed', children: true }]);
 			break;
 		default:
 			chrome.bookmarks.getSubTree(id, function(result) {
@@ -671,13 +659,20 @@ function setClass(target, node, isopen) {
 
 	switch(node.id) {
 		case 'top':
-		case 'apps':
 		case 'recent':
 		case 'closed':
-		case 'devices':
 		case 'empty':
 			target.classList.add(node.id);
 	}
+}
+
+var iconProvider = 4;
+
+// creates a vector icon element tinted with currentColor
+function svgIcon(name) {
+	var div = document.createElement('div');
+	div.className = 'icon icon-' + name;
+	return div;
 }
 
 // gets best icon for a node
@@ -696,16 +691,44 @@ function getIcon(node) {
 		}
 	} else if (node.icon) {
 		url = node.icon;
-	} else if (node.url) {
-		url = `/_favicon/?pageUrl=${encodeURIComponent(node.url)}&size=16`;
-		url2x = `/_favicon/?pageUrl=${encodeURIComponent(node.url)}&size=32`;
+	} else if (node.url && iconProvider != 0) {
+		try {
+			var u = new URL(node.url);
+			if (u.protocol === "about:") {
+				return svgIcon('apps');
+			} else if (u.protocol === "file:") {
+				return svgIcon('page');
+			} else if (iconProvider == 1) {
+				url = u.origin + '/favicon.ico';
+			} else if (iconProvider == 2) {
+				url = 'https://t2.gstatic.com/faviconV2?url=' + u.origin + '&size=16&type=FAVICON&client=SOCIAL&fallback_opts=TYPE,SIZE,URL';
+				url2x = 'https://t2.gstatic.com/faviconV2?url=' + u.origin + '&size=32&type=FAVICON&client=SOCIAL&fallback_opts=TYPE,SIZE,URL';
+			} else if (iconProvider == 3) {
+				url = 'https://quintessential-jade-termite.faviconkit.com/' + u.hostname + '/16';
+				url2x = 'https://quintessential-jade-termite.faviconkit.com/' + u.hostname + '/32';
+			} else if (iconProvider == 4) {
+				url = 'https://external-content.duckduckgo.com/ip3/' + u.hostname + '.ico';
+			} else if (iconProvider == 5) {
+				url = 'https://s.qwant.com/fav/x/x/' + u.hostname.replace('.', '_') + '.ico';
+			} else if (iconProvider == 6) {
+				url = 'https://favicon.yandex.net/favicon/v2/' + u.hostname + '?size=16';
+				url2x = 'https://favicon.yandex.net/favicon/v2/' + u.hostname + '?size=32';
+			}
+		} catch (e) {
+			console.error(e);
+		}
 	}
-
 	var icon = document.createElement(url ? 'img' : 'div');
 	icon.className = 'icon';
 	icon.src = url;
 	if (url2x) icon.srcset = url2x + ' 2x';
 	icon.alt = ' ';
+	// replace broken favicons with a vector globe
+	icon.onerror = function() {
+		var fallback = svgIcon('globe');
+		if (this.parentNode)
+			this.parentNode.replaceChild(fallback, this);
+	};
 	return icon;
 }
 
@@ -810,7 +833,7 @@ function openLink(node, newtab) {
 	if (url) {
 		chrome.tabs.getCurrent(function(tab) {
 			if (newtab)
-				chrome.tabs.create({url: url, active: (newtab == 1), openerTabId: tab.id});
+				chrome.tabs.create({url: url, active: (newtab == 1)});
 			else
 				chrome.tabs.update(tab.id, {url: url});
 		});
@@ -820,7 +843,7 @@ function openLink(node, newtab) {
 var columns; // columns[x][y] = id
 var root; // root[] = id
 var coords; // coords[id] = {x:x, y:y}
-var special = ['apps', 'top', 'recent', 'closed', 'devices'];
+var special = ['top', 'recent', 'closed'];
 
 // ensure root folders are included
 function verifyColumns() {
@@ -980,52 +1003,26 @@ function removeRow(xpos, ypos) {
 // get recently closed tabs
 function getClosed(callback) {
 	var maxResults = getConfig('number_closed');
-	chrome.sessions.getRecentlyClosed({ maxResults: maxResults }, function(sessions) {
+	chrome.sessions.getRecentlyClosed({}, function(sessions) {
 		var nodes = [];
-		for (var i = 0; i < sessions.length && i < maxResults; i++) {
+		for (var i = 0; i < sessions.length && nodes.length < maxResults; i++) {
 			(function(session) {
 				if (session.window && session.window.tabs.length == 1)
 					session.tab = session.window.tabs[0];
 
-				nodes.push({
-					title: session.tab ? session.tab.title : session.window.tabs.length + ' Tabs',
-					url: session.tab ? session.tab.url : null,
-					className: session.window ? 'window' : null,
-					action: function() {
-						chrome.sessions.restore(session.window ? session.window.sessionId : session.tab.sessionId, function(session) {
-							refreshClosed();
-						});
-						return false;
-					}
-				});
+				if (!session.tab || session.tab.url && !session.tab.url.startsWith(location.origin))
+					nodes.push({
+						title: session.tab ? session.tab.title : session.window.tabs.length + ' Tabs',
+						url: session.tab ? session.tab.url : null,
+						className: session.window ? 'window' : null,
+						action: function() {
+							chrome.sessions.restore(session.window ? session.window.sessionId : session.tab.sessionId, function(session) {
+								refreshClosed();
+							});
+							return false;
+						}
+					});
 			})(sessions[i]);
-		}
-		callback(nodes);
-	});
-}
-
-function getDevices(callback) {
-	chrome.sessions.getDevices({ maxResults: getConfig('number_closed') }, function(devices) {
-		var nodes = [];
-		for (var i = 0; i < devices.length; i++) {
-			(function(device) {
-				var children = [];
-				for (var j = 0; j < device.sessions.length; j++) {
-					var session = device.sessions[j];
-					var tabs = session.window ? session.window.tabs : [session.tab];
-					for (var k = 0; k < tabs.length; k++) {
-						children.push({
-							title: tabs[k].title,
-							url: tabs[k].url
-						});
-					}
-				}
-				nodes.push({
-					id: 'device.' + device.deviceName,
-					title: device.deviceName,
-					children: children
-				});
-			})(devices[i]);
 		}
 		callback(nodes);
 	});
@@ -1056,22 +1053,23 @@ function refreshClosed() {
 
 // options : default values
 var config = {
+	language: 'auto',
 	font: 'Sans-serif',
 	font_size: 16,
 	font_weight: 400,
 	theme: 'Default',
-	font_color: '#555555',
-	background_color: '#ffffff',
-	highlight_color: '#e4f4ff',
-	highlight_font_color: '#000000',
-	shadow_color: '#57b0ff',
+	font_color: '#d8d2f0',
+	background_color: '#1e1035',
+	highlight_color: '#7b33e6',
+	highlight_font_color: '#ffffff',
+	shadow_color: '#7b33e6',
 	background_image_file: '',
 	background_image: '',
 	background_align: 'left top',
 	background_repeat: 'repeat',
 	background_size: 'auto',
 	shadow_blur: 1,
-	highlight_round: 1,
+	highlight_round: 1.25,
 	fade: 1,
 	spacing: 1,
 	width: 1,
@@ -1081,24 +1079,30 @@ var config = {
 	hide_options: 0,
 	lock: 0,
 	show_top: 1,
-	show_apps: 1,
 	show_recent: 1,
 	show_closed: 1,
-	show_devices: 1,
 	show_root: 0,
 	newtab: 0,
 	remember_open: 1,
 	auto_close: 0,
 	auto_scale: 1,
 	css: '',
-	number_top: 10,
+	number_top: 12,
 	number_closed: 10,
-	number_recent: 10
+	number_recent: 10,
+	icon_provider: 4
 };
 
 // color theme values
 var themes = {
 	Default: {},
+	'Firefox Light': {
+		font_color: '#20123a',
+		background_color: '#f9f9fb',
+		highlight_color: '#0060df',
+		highlight_font_color: '#ffffff',
+		shadow_color: '#0060df'
+	},
 	Classic: {
 		font_color: '#000000',
 		background_color: '#ffffff',
@@ -1179,6 +1183,140 @@ var themes = {
 };
 var theme = {};
 
+// russian UI strings (translated with Yandex Translate, polished for context)
+var STR = {
+	'New Tab': 'Новая вкладка',
+	'Settings': 'Настройки',
+	'Appearance': 'Оформление',
+	'Import/Export': 'Импорт/экспорт',
+	'Advanced': 'Расширенные',
+	'Content': 'Содержимое',
+	'Font': 'Шрифт',
+	'Colors': 'Цвета',
+	'Layout': 'Расположение',
+	'Animation': 'Анимация',
+	'Open links in': 'Открывать ссылки в',
+	'Current tab': 'Текущая вкладка',
+	'New tab': 'Новая вкладка',
+	'New tab (background)': 'Новая вкладка (в фоне)',
+	'Get website icons from': 'Источник значков сайтов',
+	'Auto (browser language)': 'Автоматически (язык браузера)',
+	'Language': 'Язык',
+	'Lock columns': 'Заблокировать колонки',
+	'Remember open folders': 'Запоминать открытые папки',
+	'Auto-close folders': 'Автоматически закрывать папки',
+	'Show top-level folders': 'Показывать папки верхнего уровня',
+	'Hide options button': 'Скрыть кнопку настроек',
+	'Most visited': 'Часто посещаемые',
+	'Recent bookmarks': 'Недавние закладки',
+	'Recently closed': 'Недавно закрытые',
+	'Number of items': 'Количество элементов',
+	'Size': 'Размер',
+	'Weight': 'Насыщенность',
+	'Theme': 'Тема',
+	'Text': 'Текст',
+	'Background': 'Фон',
+	'Highlight': 'Подсветка',
+	'Highlight text': 'Текст подсветки',
+	'Shadow': 'Тень',
+	'Item spacing': 'Интервал между элементами',
+	'Top margin': 'Верхний отступ',
+	'Column width': 'Ширина колонки',
+	'Align': 'Выравнивание',
+	'Scale with window size': 'Масштабировать по размеру окна',
+	'Shadow size': 'Размер тени',
+	'Corner roundness': 'Скругление углов',
+	'Highlight fade time': 'Время затухания подсветки',
+	'Folder open time': 'Время открытия папки',
+	'Background image': 'Фоновое изображение',
+	'URL': 'URL-адрес',
+	'Local file': 'Локальный файл',
+	'Original': 'Оригинальный',
+	'Full': 'Заполнить',
+	'Best fit': 'Вписать',
+	'Tiling': 'Повторение',
+	'Tile': 'Замостить',
+	'Horizontal': 'По горизонтали',
+	'Vertical': 'По вертикали',
+	'None': 'Нет',
+	'Top left': 'Сверху слева',
+	'Top': 'Сверху',
+	'Top right': 'Сверху справа',
+	'Left': 'Слева',
+	'Center': 'По центру',
+	'Right': 'Справа',
+	'Bottom left': 'Снизу слева',
+	'Bottom': 'Снизу',
+	'Bottom right': 'Снизу справа',
+	'Export Settings': 'Экспорт настроек',
+	'Import Settings': 'Импорт настроек',
+	'Generated CSS': 'Сгенерированный CSS',
+	'Custom CSS': 'Пользовательский CSS',
+	'Thin': 'Тонкий',
+	'Extra Light': 'Особо светлый',
+	'Light': 'Светлый',
+	'Regular': 'Обычный',
+	'Medium': 'Средний',
+	'Semi Bold': 'Полужирный',
+	'Bold': 'Жирный',
+	'Extra Bold': 'Особо жирный',
+	'Heavy': 'Плотный',
+	'Open all links in folder': 'Открыть все ссылки в папке',
+	'History': 'История',
+	'Clear browsing data': 'Очистить данные браузера',
+	'Create new column': 'Создать новую колонку',
+	'Move folder up': 'Переместить папку вверх',
+	'Move folder down': 'Переместить папку вниз',
+	'Move folder left': 'Переместить папку влево',
+	'Move folder right': 'Переместить папку вправо',
+	'Remove folder': 'Убрать папку',
+	'Move column left': 'Переместить колонку влево',
+	'Move column right': 'Переместить колонку вправо',
+	'Remove column': 'Убрать колонку',
+	'Paste exported settings here': 'Вставьте экспортированные настройки сюда',
+	'Import successful!': 'Импорт выполнен успешно!',
+	'Import error! Please check if your settings are valid JSON.': 'Ошибка импорта! Проверьте, что настройки — корректный JSON.',
+	'Image must be less than 2 MB.': 'Размер изображения не должен превышать 2 МБ.',
+	'Reset to default': 'Вернуть значение по умолчанию',
+	'Options': 'Настройки',
+	'Close': 'Закрыть',
+	'< Empty >': '< Пусто >'
+};
+
+var lang = 'en';
+
+// translate a string for the current language
+function L(s) {
+	return lang === 'ru' && STR.hasOwnProperty(s) ? STR[s] : s;
+}
+
+// resolve language setting and translate static markup
+function initLanguage() {
+	var pref = getConfig('language');
+	lang = (pref === 'ru' || pref === 'en') ? pref :
+		((navigator.language || 'en').substring(0, 2).toLowerCase() === 'ru' ? 'ru' : 'en');
+	document.documentElement.lang = lang;
+	document.title = L(document.title);
+	if (lang === 'ru') {
+		var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+		var nodes = [];
+		while (walker.nextNode()) nodes.push(walker.currentNode);
+		for (var i = 0; i < nodes.length; i++) {
+			var text = nodes[i].nodeValue;
+			var trimmed = text.trim();
+			if (trimmed && STR.hasOwnProperty(trimmed))
+				nodes[i].nodeValue = text.replace(trimmed, STR[trimmed]);
+		}
+		var attrs = document.querySelectorAll('[title], [placeholder]');
+		for (var j = 0; j < attrs.length; j++) {
+			if (attrs[j].title && STR.hasOwnProperty(attrs[j].title))
+				attrs[j].title = STR[attrs[j].title];
+			if (attrs[j].placeholder && STR.hasOwnProperty(attrs[j].placeholder))
+				attrs[j].placeholder = STR[attrs[j].placeholder];
+		}
+	}
+}
+
 // get config value or default
 function getConfig(key) {
 	var value = localStorage.getItem('options.' + key);
@@ -1197,7 +1335,9 @@ function setConfig(key, value) {
 		value = (theme.hasOwnProperty(key) ? theme[key] : config[key]);
 	}
 	// special case settings
-	if (key == 'lock' || key == 'newtab' || key == 'show_root' || key.substring(0,6) == 'number')
+	if (key == 'language')
+		setTimeout(function() { location.reload(); }, 50);
+	else if (key == 'lock' || key == 'newtab' || key == 'show_root' || key == 'icon_provider' || key.substring(0,6) == 'number')
 		loadColumns();
 	else if (key == 'theme') {
 		theme = themes[value];
@@ -1235,7 +1375,7 @@ function getStyle(key, value) {
 		case 'font_color':
 			return '#main a { color: ' + value + '; }';
 		case 'background_color':
-			return 'body { background-color: ' + value + '; }';
+			return 'body { background-color: ' + value + '; background-image: none; }';
 		case 'background_image':
 			return 'body { background-image: url(' + value + '); }';
 		case 'background_image_file':
@@ -1249,11 +1389,11 @@ function getStyle(key, value) {
 		case 'highlight_font_color':
 			return '#main a:hover { color: ' + value + '; }';
 		case 'highlight_color':
-			return '#main a:hover { background-color: ' + value + '; }';
+			return '#main a:hover { background-color: color-mix(in srgb, ' + value + ' 45%, transparent); }';
 		case 'shadow_color':
-			return '#main a:hover { box-shadow: 0 0 ' + scale(getConfig('shadow_blur'), 7, 100) + 'px ' + value + '; }';
+			return '#main a:hover { box-shadow: 0 0 ' + scale(getConfig('shadow_blur'), 7, 100) + 'px color-mix(in srgb, ' + value + ' 55%, transparent); }';
 		case 'shadow_blur':
-			return '#main a:hover { box-shadow: 0 0 ' + scale(value, 7, 100) + 'px ' + getConfig('shadow_color') + '; }';
+			return '#main a:hover { box-shadow: 0 0 ' + scale(value, 7, 100) + 'px color-mix(in srgb, ' + getConfig('shadow_color') + ' 55%, transparent); }';
 		case 'highlight_round':
 			return '#main a { border-radius: ' + scale(value, .2, 1.5) + 'em; }';
 		case 'fade':
@@ -1337,6 +1477,8 @@ function onChange(key, value) {
 	else if (key == 'auto_scale') {
 		onChange('width');
 		onChange('v_margin');
+	} else if (key == 'icon_provider') {
+		iconProvider = value;
 	}
 
 	// update options panel
@@ -1400,7 +1542,7 @@ function initConfig(key) {
 				var file = event.target.files[0];
 				if (file.size > 2097152) {
 					input.value = null;
-					alert('Image must be less than 2 MB.');
+					alert(L('Image must be less than 2 MB.'));
 					return false;
 				}
 				var reader = new FileReader();
@@ -1416,7 +1558,7 @@ function initConfig(key) {
 
 	var reset = document.createElement('a');
 	reset.className = 'revert';
-	reset.title = 'Reset to default';
+	reset.title = L('Reset to default');
 	reset.tabIndex = 0;
 	reset.onclick = function() {
 		setConfig(key, null);
@@ -1477,7 +1619,7 @@ function initSettings() {
 				};
 				exports.value = JSON.stringify(localStorage, replacer);
 				imports.value = '';
-				imports.placeholder = 'Paste exported settings here';
+				imports.placeholder = L('Paste exported settings here');
 				imports.onchange = function() {
 					try {
 						var imported = JSON.parse(imports.value);
@@ -1485,13 +1627,15 @@ function initSettings() {
 							localStorage.setItem(key, imported[key]);
 						}
 						imports.value = '';
-						imports.placeholder = 'Import successful!';
+						imports.placeholder = L('Import successful!');
 						exports.value = JSON.stringify(localStorage, replacer);
 						loadSettings();
 						loadColumns();
+						// reload to re-apply language cleanly
+						setTimeout(function() { location.reload(); }, 300);
 					} catch (e) {
 						imports.value = '';
-						imports.placeholder = 'Import error! Please check if your settings are valid JSON.';
+						imports.placeholder = L('Import error! Please check if your settings are valid JSON.');
 					}
 				};
 			}
@@ -1579,6 +1723,7 @@ function showOptions(show) {
 }
 
 // initialize page
+initLanguage();
 loadSettings();
 loadColumns();
 

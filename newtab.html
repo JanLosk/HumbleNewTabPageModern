@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <title>New Tab</title>
 <link rel="stylesheet" href="newtab.css">
-<link rel="icon" href="icons/icon_16.png">
 </head>
 <body>
 <div id="main">
@@ -21,10 +20,24 @@
 	<div class="section current">
 	<fieldset>
 		<legend>Settings</legend>
+		<label><span>Language</span><select id="options_language">
+			<option value="auto">Auto (browser language)</option>
+			<option value="en">English</option>
+			<option value="ru">Русский</option>
+		</select></label>
 		<label><span>Open links in</span><select id="options_newtab">
 			<option value="0">Current tab</option>
 			<option value="1">New tab</option>
 			<option value="2">New tab (background)</option>
+		</select></label>
+		<label><span>Get website icons from</span><select id="options_icon_provider">
+			<option value="4">DuckDuckGo (duckduckgo.com)</option>
+			<option value="6">Yandex (yandex.net)</option>
+			<option value="2">Google (gstatic.com)</option>
+			<option value="3">Favicon Kit (faviconkit.com)</option>
+			<option value="5">Qwant (qwant.com)</option>
+			<option value="1">Favicon.ico</option>
+			<option value="0">None</option>
 		</select></label>
 		<label><span>Lock columns</span><input id="options_lock" type="checkbox"/></label>
 		<label><span>Remember open folders</span><input id="options_remember_open" type="checkbox"/></label>
@@ -34,15 +47,13 @@
 	</fieldset>
 	<fieldset>
 		<legend>Content</legend>
-		<label><span>Apps</span><input id="options_show_apps" type="checkbox"/></label>
 		<div id="options_show_bookmarks"></div>
 		<label><span>Most visited</span><input id="options_show_top" type="checkbox"/></label>
-		<label class="subopt"><span>Number of items</span><input id="options_number_top" type="number" min="1" max="10"/></label>
+		<label class="subopt"><span>Number of items</span><input id="options_number_top" type="number" min="1" max="12"/></label>
 		<label><span>Recent bookmarks</span><input id="options_show_recent" type="checkbox"/></label>
 		<label class="subopt"><span>Number of items</span><input id="options_number_recent" type="number" min="1" max="1000"/></label>
 		<label><span>Recently closed</span><input id="options_show_closed" type="checkbox"/></label>
 		<label class="subopt"><span>Number of items</span><input id="options_number_closed" type="number" min="1" max="25"/></label>
-		<label><span>Other devices</span><input id="options_show_devices" type="checkbox"/></label>
 	</fieldset>
 	</div><div class="section">
 	<fieldset>

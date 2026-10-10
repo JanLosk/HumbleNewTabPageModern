@@ -6,7 +6,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "humble-new-tab-modern@janlosk",
-      "strict_min_version": "134.0"
+      "strict_min_version": "134.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "description": "A modern, firefox.com-inspired redesign of the classic Humble New Tab Page: bookmarks, most visited and recently closed on a dark purple new tab with vector icons and English/Russian UI.",

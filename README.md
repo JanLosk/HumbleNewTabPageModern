@@ -64,6 +64,7 @@ The original upstream (including its Chrome-only variant) is available at [ibill
 - "Recently closed" context menu: History (`about:history`) and Clear browsing data (`about:preferences#privacy`)
 - Broken favicons fall back to a vector globe icon
 - New "Firefox Light" color theme; "Default" is now the dark firefox.com look
+- Manifest declares `data_collection_permissions: none` (AMO requirement); unused Chrome-only `fontSettings` code removed
 
 For earlier versions see the [upstream changelog](https://github.com/ibillingsley/HumbleNewTabPage#changelog).
 

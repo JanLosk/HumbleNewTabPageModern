@@ -1664,14 +1664,6 @@ function initSettings() {
 			placeholder.appendChild(label);
 		}
 
-		// replace text input with system font list
-		if (chrome.fontSettings) {
-			var input = document.getElementById('options_font');
-			var select = document.createElement('select');
-			input.parentNode.replaceChild(select, input);
-			select.id = input.id;
-		}
-
 		// show settings
 		for (var key in config)
 			initConfig(key);
@@ -1688,25 +1680,6 @@ function initSettings() {
 					option.selected = 'selected';
 				select.appendChild(option);
 			}
-		}
-
-		// load font list
-		if (chrome.fontSettings) {
-			chrome.fontSettings.getFontList(function(fonts) {
-				var select = document.getElementById('options_font');
-				if (select.childNodes.length > 0)
-					return;
-
-				fonts.unshift({ fontId: 'Sans-serif' });
-				for (var i = 0; i < fonts.length; i++) {
-					var font = fonts[i].fontId;
-					var option = document.createElement('option');
-					option.innerText = font;
-					if (font == getConfig('font'))
-						option.selected = 'selected';
-					select.appendChild(option);
-				}
-			});
 		}
 	});
 }

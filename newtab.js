@@ -151,22 +151,22 @@ function renderColumn(index, target) {
 			addColumnHandlers(index, target);
 		});
 	else if (ids.length > 0) {
-		var i = 0;
-		var nodes = [];
-		// get all nodes for column
-		var callback = function(result) {
-			for (var j = 0; j < result.length; j++)
-				nodes.push(result[j]);
-			i++;
-			if (i < ids.length)
-				getSubTree(ids[i], callback);
-			else {
-				// render node list
-				renderAll(nodes, target, true);
-				addColumnHandlers(index, target);
-			}
-		};
-		getSubTree(ids[i], callback);
+		var nodes = new Array(ids.length);
+		var pending = ids.length;
+		// get all nodes for the column in parallel
+		ids.forEach(function(id, i) {
+			getSubTree(id, function(result) {
+				nodes[i] = result || [];
+				if (--pending === 0) {
+					var list = [];
+					for (var j = 0; j < nodes.length; j++)
+						list = list.concat(nodes[j]);
+					// render node list
+					renderAll(list, target, true);
+					addColumnHandlers(index, target);
+				}
+			});
+		});
 	}
 }
 
@@ -938,6 +938,16 @@ function verifyColumns() {
 	}
 }
 
+// init root node ids from the full bookmark tree
+function initRoot(result) {
+	if (root) return;
+	var nodes = result[0].children;
+	root = special.slice(0);
+
+	for (var i = 0; i < nodes.length; i++)
+		root.push(nodes[i].id);
+}
+
 // load columns from storage or default
 function loadColumns() {
 	columns = [];
@@ -955,13 +965,7 @@ function loadColumns() {
 		renderColumns();
 	} else {
 		chrome.bookmarks.getTree(function(result) {
-			// init root nodes
-			var nodes = result[0].children;
-			root = special.slice(0);
-
-			for (var i = 0; i < nodes.length; i++)
-				root.push(nodes[i].id);
-
+			initRoot(result);
 			verifyColumns();
 			renderColumns();
 		});
@@ -1741,12 +1745,50 @@ function showOptions(show) {
 	}
 }
 
-// initialize page (settings load asynchronously from extension storage)
-initStorage(function() {
-	initLanguage();
-	loadSettings();
-	loadColumns();
-});
+// initialize page (settings, bookmark tree and column data load in parallel)
+(function() {
+	var settingsReady = false;
+	var treeResult = null;
+	var initialized = false;
+
+	initStorage(function() {
+		settingsReady = true;
+		// cached root folder ids let rendering start without waiting for getTree
+		var cached = storage['roots'];
+		if (cached && !root)
+			root = special.concat(cached);
+		start();
+	});
+
+	// the bookmark tree does not depend on settings, start it right away
+	chrome.bookmarks.getTree(function(result) {
+		treeResult = result;
+		var nodes = result[0].children;
+		var ids = [];
+		for (var i = 0; i < nodes.length; i++)
+			ids.push(nodes[i].id);
+		if (JSON.stringify(storage['roots'] || null) !== JSON.stringify(ids))
+			storageSet('roots', ids);
+		if (root && JSON.stringify(root) !== JSON.stringify(special.concat(ids))) {
+			// cached roots were stale, re-render with the fresh set
+			root = special.concat(ids);
+			if (settingsReady && initialized)
+				loadColumns();
+		}
+		start();
+	});
+
+	function start() {
+		if (initialized || !settingsReady) return;
+		if (!root && !treeResult) return;
+		initialized = true;
+		initLanguage();
+		loadSettings();
+		if (!root)
+			initRoot(treeResult);
+		loadColumns();
+	}
+})();
 
 // keyboard shortcuts
 document.addEventListener('keypress', function(event) {

@@ -52,6 +52,10 @@ The original upstream (including its Chrome-only variant) is available at [ibill
 
 ## 📋 Changelog
 
+### Version 2.1.1 - October 11, 2026
+
+- New tab opens much faster: settings, the bookmark tree and column data now load in parallel instead of a sequential request chain (about 2x faster on a cold start), and root folder ids are cached in storage to skip the initial tree fetch on subsequent loads
+
 ### Version 2.1.0 - October 11, 2026
 
 - Settings now live in `browser.storage.local` instead of localStorage: shared across container tabs, no longer tied to site data (one-time automatic migration from old localStorage values)

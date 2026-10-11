@@ -256,13 +256,13 @@ img.icon {
 	background-color: var(--panel);
 	backdrop-filter: blur(24px) saturate(1.3);
 	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-	width: 47em;
+	width: 48.5em;
 	height: min(600px, 88vh);
 	overflow: hidden;
 }
 #options_nav {
 	position: absolute;
-	width: 12em;
+	width: 13em;
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -281,6 +281,7 @@ img.icon {
 	color: var(--text-dim);
 	border-radius: 8px;
 	cursor: pointer;
+	white-space: nowrap;
 	transition: background-color .12s ease-out, color .12s ease-out;
 }
 #options_nav a:hover {
@@ -294,7 +295,7 @@ img.icon {
 	box-shadow: inset 3px 0 0 var(--accent);
 }
 #options .section {
-	margin-left: 12em;
+	margin-left: 13em;
 	height: 100%;
 	box-sizing: border-box;
 	padding: 2.4em 1.2em 1.5em 0;
@@ -421,11 +422,8 @@ input[type=color] {
 input[type="file"] {
 	color: var(--text-dim);
 }
-#options_icon_provider {
+#options select {
 	width: 14.5em;
-}
-#options_language {
-	width: 12em;
 }
 .subopt {
 	margin: 0 0 .8em 2.5em;

@@ -29,7 +29,7 @@ Everything else works like the original: drag and drop folders into columns, cus
 ## 📦 Download and install
 
 Grab a ready-to-install package from the [Releases](../../releases) page:
-**`HumbleNewTabPageModern-2.0.0.xpi`**
+**`HumbleNTPModern-2.0.1.xpi`**
 
 ### Temporary install (until Firefox restarts)
 
@@ -52,6 +52,13 @@ zip -r HumbleNewTabPageModern.xpi manifest.json newtab.html newtab.css newtab.js
 The original upstream (including its Chrome-only variant) is available at [ibillingsley/HumbleNewTabPage](https://github.com/ibillingsley/HumbleNewTabPage) and in this repository's git history.
 
 ## 📋 Changelog
+
+### Version 2.0.1 - October 11, 2026
+
+- All dropdowns in the options panel now share one uniform width
+- Sidebar navigation never wraps ("Import/Export" stayed on one line when active); panel and sections got extra room
+- Font option now offers a dropdown of common font families (free text still works)
+- Favicons are requested with `referrerPolicy: no-referrer`
 
 ### Version 2.0.0 - October 10, 2026
 

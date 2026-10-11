@@ -722,6 +722,8 @@ function getIcon(node) {
 	icon.className = 'icon';
 	icon.src = url;
 	if (url2x) icon.srcset = url2x + ' 2x';
+	// do not send a referrer to favicon providers
+	icon.referrerPolicy = 'no-referrer';
 	icon.alt = ' ';
 	// replace broken favicons with a vector globe
 	icon.onerror = function() {

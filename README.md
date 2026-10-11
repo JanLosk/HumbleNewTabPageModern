@@ -28,8 +28,7 @@ Everything else works like the original: drag and drop folders into columns, cus
 
 ## 📦 Download and install
 
-Grab a ready-to-install package from the [Releases](../../releases) page:
-**`HumbleNTPModern-2.0.1.xpi`**
+Grab a ready-to-install package from the [Releases](../../releases)
 
 ### Temporary install (until Firefox restarts)
 
@@ -52,6 +51,12 @@ zip -r HumbleNewTabPageModern.xpi manifest.json newtab.html newtab.css newtab.js
 The original upstream (including its Chrome-only variant) is available at [ibillingsley/HumbleNewTabPage](https://github.com/ibillingsley/HumbleNewTabPage) and in this repository's git history.
 
 ## 📋 Changelog
+
+### Version 2.1.0 - October 11, 2026
+
+- Settings now live in `browser.storage.local` instead of localStorage: shared across container tabs, no longer tied to site data (one-time automatic migration from old localStorage values)
+- Favicons for local/private hosts (`localhost`, `127.*`, `10.*`, `192.168.*`, `172.16–31.*`, `169.254.*`, `*.local` and friends) are fetched directly from the site itself instead of the third-party provider
+- Polish aligned with the new Firefox design: unified corner radii, a subtle top-light on the bookmark hover pill, softer menu/panel shadows
 
 ### Version 2.0.1 - October 11, 2026
 

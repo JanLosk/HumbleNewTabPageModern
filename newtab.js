@@ -1,5 +1,44 @@
 'use strict';
 
+// settings are kept in browser.storage.local, shared across all containers
+var storage = {};
+
+// load settings from extension storage, migrating from localStorage once
+function initStorage(callback) {
+	chrome.storage.local.get(null, function(items) {
+		storage = items || {};
+
+		// one-time migration from localStorage (pre-2.1 versions)
+		var legacy = [];
+		for (var i = 0; i < localStorage.length; i++) {
+			var key = localStorage.key(i);
+			if (/^(options|column|open)\./.test(key))
+				legacy.push(key);
+		}
+		if (legacy.length > 0 && Object.keys(storage).length === 0) {
+			for (var j = 0; j < legacy.length; j++) {
+				storage[legacy[j]] = localStorage.getItem(legacy[j]);
+				localStorage.removeItem(legacy[j]);
+			}
+			chrome.storage.local.set(storage);
+		}
+		callback();
+	});
+}
+
+// write a settings key to the in-memory cache and extension storage
+function storageSet(key, value) {
+	if (value != null) {
+		storage[key] = value;
+		var item = {};
+		item[key] = value;
+		chrome.storage.local.set(item);
+	} else {
+		delete storage[key];
+		chrome.storage.local.remove(key);
+	}
+}
+
 // render a single bookmark node
 function render(node, target) {
 	if (node.type == 'separator' || node.url && node.url.startsWith('place:')) {
@@ -63,7 +102,7 @@ function render(node, target) {
 	// folder
 	if (node.children) {
 		// render children
-		if (a.open || getConfig('remember_open') && localStorage.getItem('open.' + node.id)) {
+		if (a.open || getConfig('remember_open') && storage['open.' + node.id]) {
 			setClass(a, node, true);
 			a.open = true;
 			getChildrenFunction(node)(function(result) {
@@ -668,6 +707,15 @@ function setClass(target, node, isopen) {
 
 var iconProvider = 4;
 
+// checks whether the host is local or on a private network
+function isLocalHost(u) {
+	if (u.protocol === 'file:') return true;
+	var h = u.hostname.toLowerCase();
+	if (h === 'localhost' || h === '::1' || h === '[::1]') return true;
+	if (/\.localhost$|\.local$|\.internal$|\.lan$|\.home$/.test(h)) return true;
+	return /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h);
+}
+
 // creates a vector icon element tinted with currentColor
 function svgIcon(name) {
 	var div = document.createElement('div');
@@ -698,6 +746,9 @@ function getIcon(node) {
 				return svgIcon('apps');
 			} else if (u.protocol === "file:") {
 				return svgIcon('page');
+			} else if (isLocalHost(u)) {
+				// local/private network: get the icon directly from the site
+				url = u.origin + '/favicon.ico';
 			} else if (iconProvider == 1) {
 				url = u.origin + '/favicon.ico';
 			} else if (iconProvider == 2) {
@@ -741,7 +792,7 @@ function toggle(node, a) {
 	a.open = !isopen;
 	if (isopen) {
 		// close folder
-		localStorage.removeItem('open.' + node.id);
+		storageSet('open.' + node.id, null);
 		if (a.nextSibling){
 			// auto-close child folders
 			if (getConfig('auto_close')) {
@@ -757,7 +808,7 @@ function toggle(node, a) {
 		}
 	} else {
 		// open folder
-		localStorage.setItem('open.' + node.id, true);
+		storageSet('open.' + node.id, true);
 		// auto-close sibling folders
 		if (getConfig('auto_close')) {
 			var siblings = a.parentNode.parentNode.children;
@@ -893,7 +944,7 @@ function loadColumns() {
 	for (var x = 0; ; x++) {
 		var row = [];
 		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
+			var id = storage['column.' + x + '.' + y];
 			if (id) row.push(id); else break;
 		}
 		if (row.length > 0) columns.push(row); else break;
@@ -920,22 +971,14 @@ function loadColumns() {
 // saves current column configuration to storage
 function saveColumns() {
 	// clear previous config
-	for (var x = 0; ; x++) {
-		for (var y = 0; ; y++) {
-			var id = localStorage.getItem('column.' + x + '.' + y);
-			if (id)
-				localStorage.removeItem('column.' + x + '.' + y);
-			else
-				break;
-		}
-		if (y === 0)
-			break;
-	}
+	for (var key in storage)
+		if (/^column\./.test(key))
+			storageSet(key, null);
 	verifyColumns();
 	// save new config
 	for (var x = 0; x < columns.length; x++) {
 		for (var y = 0; y < columns[x].length; y++) {
-			localStorage.setItem('column.' + x +'.' + y, columns[x][y]);
+			storageSet('column.' + x + '.' + y, columns[x][y]);
 		}
 	}
 	// refresh
@@ -1071,7 +1114,7 @@ var config = {
 	background_repeat: 'repeat',
 	background_size: 'auto',
 	shadow_blur: 1,
-	highlight_round: 1.25,
+	highlight_round: 1.35,
 	fade: 1,
 	spacing: 1,
 	width: 1,
@@ -1321,7 +1364,7 @@ function initLanguage() {
 
 // get config value or default
 function getConfig(key) {
-	var value = localStorage.getItem('options.' + key);
+	var value = storage['options.' + key];
 	if (value != null)
 		return typeof config[key] === 'number' ? Number(value) : value;
 	else
@@ -1331,9 +1374,9 @@ function getConfig(key) {
 // set config value
 function setConfig(key, value) {
 	if (value != null)
-		localStorage.setItem('options.' + key, typeof config[key] === 'number' ? Number(value) : value);
+		storageSet('options.' + key, typeof config[key] === 'number' ? Number(value) : value);
 	else {
-		localStorage.removeItem('options.' + key);
+		storageSet('options.' + key, null);
 		value = (theme.hasOwnProperty(key) ? theme[key] : config[key]);
 	}
 	// special case settings
@@ -1619,18 +1662,19 @@ function initSettings() {
 					}
 					return value;
 				};
-				exports.value = JSON.stringify(localStorage, replacer);
+				exports.value = JSON.stringify(storage, replacer);
 				imports.value = '';
 				imports.placeholder = L('Paste exported settings here');
 				imports.onchange = function() {
 					try {
 						var imported = JSON.parse(imports.value);
 						for(var key in imported) {
-							localStorage.setItem(key, imported[key]);
+							storage[key] = imported[key];
 						}
+						chrome.storage.local.set(imported);
 						imports.value = '';
 						imports.placeholder = L('Import successful!');
-						exports.value = JSON.stringify(localStorage, replacer);
+						exports.value = JSON.stringify(storage, replacer);
 						loadSettings();
 						loadColumns();
 						// reload to re-apply language cleanly
@@ -1697,10 +1741,12 @@ function showOptions(show) {
 	}
 }
 
-// initialize page
-initLanguage();
-loadSettings();
-loadColumns();
+// initialize page (settings load asynchronously from extension storage)
+initStorage(function() {
+	initLanguage();
+	loadSettings();
+	loadColumns();
+});
 
 // keyboard shortcuts
 document.addEventListener('keypress', function(event) {

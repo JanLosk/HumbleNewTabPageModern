@@ -142,55 +142,126 @@ function renderAll(nodes, target, toplevel) {
 	return ul;
 }
 
-// render column with given index
-function renderColumn(index, target) {
+// synthesizes the special virtual folder node for a given id
+function syntheticNode(id) {
+	switch (id) {
+		case 'top':
+			return { title: L('Most visited'), id: 'top', children: true };
+		case 'recent':
+			return { title: L('Recent bookmarks'), id: 'recent', children: true };
+		case 'closed':
+			return { title: L('Recently closed'), id: 'closed', children: true };
+	}
+	return { id: id, children: true };
+}
+
+// fetch the rendered node list of a column (without touching the DOM)
+function fetchColumn(index, callback) {
 	var ids = columns[index];
 	if (ids.length == 1 && !getConfig('show_root'))
 		getChildrenFunction({id: ids[0]})(function(result) {
-			renderAll(result, target);
-			addColumnHandlers(index, target);
+			callback(result || []);
 		});
 	else if (ids.length > 0) {
-		var nodes = new Array(ids.length);
+		var parts = new Array(ids.length);
 		var pending = ids.length;
 		// get all nodes for the column in parallel
 		ids.forEach(function(id, i) {
 			getSubTree(id, function(result) {
-				nodes[i] = result || [];
+				parts[i] = result || [];
 				if (--pending === 0) {
 					var list = [];
-					for (var j = 0; j < nodes.length; j++)
-						list = list.concat(nodes[j]);
-					// render node list
-					renderAll(list, target, true);
-					addColumnHandlers(index, target);
+					for (var j = 0; j < parts.length; j++)
+						list = list.concat(parts[j]);
+					callback(list);
 				}
 			});
 		});
-	}
+	} else
+		callback([]);
 }
 
-// render all columns to main div
-function renderColumns() {
+// fetch the node lists of all columns in parallel
+function collectColumns(done) {
+	var lists = new Array(columns.length);
+	var pending = columns.length;
+	if (pending === 0) return done(lists);
+	columns.forEach(function(_, index) {
+		fetchColumn(index, function(list) {
+			lists[index] = list;
+			if (--pending === 0) done(lists);
+		});
+	});
+}
+
+// re-hydrate a cached node list: special folders get fresh localized titles
+function hydrateColumnList(list) {
+	var nodes = [];
+	for (var i = 0; i < list.length; i++) {
+		var node = list[i];
+		if (node && node.id && (node.id == 'top' || node.id == 'recent' || node.id == 'closed'))
+			nodes.push(syntheticNode(node.id));
+		else if (node && node.id)
+			nodes.push(node);
+	}
+	return nodes;
+}
+
+// create a column element and render the given node list into it
+function renderColumnDOM(index, list, target) {
+	var column = document.createElement('div');
+	column.className = 'column';
+	column.style.width = (1 / columns.length) * 100 + '%';
+
+	// enable drag and drop
+	enableDragColumn(index, column);
+
+	target.appendChild(column);
+	// single-folder columns render without the top-level duplicate filter
+	var toplevel = !(columns[index].length == 1 && !getConfig('show_root'));
+	renderAll(hydrateColumnList(list), column, toplevel);
+	addColumnHandlers(index, column);
+}
+
+// render all columns to main div; a cached snapshot paints instantly,
+// fresh data is fetched in the background and re-renders on any change
+function renderColumns(useSnapshot) {
 	// clear main div
 	var target = document.getElementById('main');
 	while (target.hasChildNodes())
 		target.removeChild(target.lastChild);
 
-	// render columns
-	for (var i = 0; i < columns.length; i++) {
-		var column = document.createElement('div');
-		column.className = 'column';
-		column.style.width = (1 / columns.length) * 100 + '%';
+	var snap = null;
+	if (useSnapshot && storage['snapshot'] &&
+			JSON.stringify(storage['snapshot'].columns) === JSON.stringify(columns))
+		snap = storage['snapshot'].cols;
 
-		// enable drag and drop
-		enableDragColumn(i, column);
-
-		target.appendChild(column);
-		renderColumn(i, column);
+	if (snap) {
+		// instant paint from the cached snapshot
+		for (var i = 0; i < columns.length; i++)
+			renderColumnDOM(i, snap[i] || [], target);
+		enableDragDrop();
 	}
 
-	enableDragDrop();
+	// fetch fresh lists in the background
+	collectColumns(function(lists) {
+		var fresh = JSON.stringify(lists);
+		if (fresh.length < 262144)
+			storageSet('snapshot', { columns: columns, cols: lists });
+		if (!snap) {
+			// no snapshot: render from fresh data
+			for (var i = 0; i < columns.length; i++)
+				renderColumnDOM(i, lists[i], target);
+			enableDragDrop();
+		} else if (fresh !== JSON.stringify(snap)) {
+			// cached snapshot was stale: re-render with fresh data
+			while (target.hasChildNodes())
+				target.removeChild(target.lastChild);
+			for (var i = 0; i < columns.length; i++)
+				renderColumnDOM(i, lists[i], target);
+			enableDragDrop();
+		}
+	});
 }
 
 // enables click and context menu for given folder
@@ -949,7 +1020,7 @@ function initRoot(result) {
 }
 
 // load columns from storage or default
-function loadColumns() {
+function loadColumns(useSnapshot) {
 	columns = [];
 	for (var x = 0; ; x++) {
 		var row = [];
@@ -962,12 +1033,12 @@ function loadColumns() {
 
 	if (root) {
 		verifyColumns();
-		renderColumns();
+		renderColumns(useSnapshot);
 	} else {
 		chrome.bookmarks.getTree(function(result) {
 			initRoot(result);
 			verifyColumns();
-			renderColumns();
+			renderColumns(useSnapshot);
 		});
 	}
 }
@@ -1786,7 +1857,8 @@ function showOptions(show) {
 		loadSettings();
 		if (!root)
 			initRoot(treeResult);
-		loadColumns();
+		// first paint may use the cached snapshot; everything else renders fresh
+		loadColumns(true);
 	}
 })();
 

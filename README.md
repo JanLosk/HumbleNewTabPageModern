@@ -28,7 +28,9 @@ Everything else works like the original: drag and drop folders into columns, cus
 
 ## 📦 Download and install
 
-Grab a ready-to-install package from the [Releases](../../releases)
+The current **signed** version is always available on [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/humble-new-tab-page-modern/) — install it from there and it updates automatically.
+
+The packages in [Releases](../../releases) are **unsigned** builds for manual testing.
 
 ### Temporary install (until Firefox restarts)
 
@@ -38,7 +40,7 @@ Grab a ready-to-install package from the [Releases](../../releases)
 
 ### Permanent install
 
-...
+Install the signed build from [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/humble-new-tab-page-modern/). Firefox only accepts Mozilla-signed add-ons for permanent installation, so the unsigned XPIs from Releases cannot be installed permanently — the Mozilla page always hosts the latest signed version.
 
 ## 🛠️ Building from source
 
@@ -49,40 +51,6 @@ zip -r HumbleNewTabPageModern.xpi manifest.json newtab.html newtab.css newtab.js
 ```
 
 The original upstream (including its Chrome-only variant) is available at [ibillingsley/HumbleNewTabPage](https://github.com/ibillingsley/HumbleNewTabPage) and in this repository's git history.
-
-## 📋 Changelog
-
-### Version 2.1.1 - October 11, 2026
-
-- New tab opens much faster: settings, the bookmark tree and column data now load in parallel instead of a sequential request chain (about 2x faster on a cold start), and root folder ids are cached in storage to skip the initial tree fetch on subsequent loads
-
-### Version 2.1.0 - October 11, 2026
-
-- Settings now live in `browser.storage.local` instead of localStorage: shared across container tabs, no longer tied to site data (one-time automatic migration from old localStorage values)
-- Favicons for local/private hosts (`localhost`, `127.*`, `10.*`, `192.168.*`, `172.16–31.*`, `169.254.*`, `*.local` and friends) are fetched directly from the site itself instead of the third-party provider
-- Polish aligned with the new Firefox design: unified corner radii, a subtle top-light on the bookmark hover pill, softer menu/panel shadows
-
-### Version 2.0.1 - October 11, 2026
-
-- All dropdowns in the options panel now share one uniform width
-- Sidebar navigation never wraps ("Import/Export" stayed on one line when active); panel and sections got extra room
-- Font option now offers a dropdown of common font families (free text still works)
-- Favicons are requested with `referrerPolicy: no-referrer`
-
-### Version 2.0.0 - October 10, 2026
-
-- Modern redesign styled after firefox.com: dark purple gradient, yellow accent, rounded hover pills with glow
-- Vector (SVG) icons replace legacy PNG icons, tinted to match the text color
-- Restyled options panel, context menus and form controls (dark theme)
-- Options panel keeps a fixed size when switching sections; long sections scroll internally
-- Russian UI translation with a language selector: Auto (browser language) / English / Russian
-- DuckDuckGo is the default favicon provider (Yandex, Google, Qwant, Favicon Kit, direct or none also available)
-- "Recently closed" context menu: History (`about:history`) and Clear browsing data (`about:preferences#privacy`)
-- Broken favicons fall back to a vector globe icon
-- New "Firefox Light" color theme; "Default" is now the dark firefox.com look
-- Manifest declares `data_collection_permissions: none` (AMO requirement); unused Chrome-only `fontSettings` code removed
-
-For earlier versions see the [upstream changelog](https://github.com/ibillingsley/HumbleNewTabPage#changelog).
 
 ## 📄 License
 
